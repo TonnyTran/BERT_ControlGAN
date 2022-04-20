@@ -1,88 +1,95 @@
-# ControlGAN 
-Pytorch implementation for Controllable Text-to-Image Generation. The goal is to generate images from text, and also allow the user to manipulate synthetic images using natural language descriptions, in one framework. 
+# ControlGAN with Pre Training Language Model (BERT)
 
-### Overview
+### Model Architecture
+
+This repo includes code for 2 systems:
+- ControlGAN with BERT text encoder
+- ControlGAN with RNN text encoder
+
 <img src="arch_1.png" width="900px" height="404px"/>
 
-**[Controllable Text-to-Image Generation](https://papers.nips.cc/paper/8480-controllable-text-to-image-generation.pdf).**  
-[Bowen Li](http://mrlibw.github.io/), [Xiaojuan Qi](https://xjqi.github.io/), [Thomas Lukasiewicz](http://www.cs.ox.ac.uk/people/thomas.lukasiewicz/), [Philip H. S. Torr](http://www.robots.ox.ac.uk/~phst/).<br> University of Oxford <br> In Neural Information Processing Systems, 2019. <br>
+### Requirements
+- Python3
+- torch
+- numpy
+- pandas
 
 ### Data
 
-1. Download the preprocessed metadata for [bird](https://drive.google.com/file/d/1MIpa-zWbvoY8e8YhvT4rYBNE6S_gkQMJ/view?usp=sharing) and [coco](https://drive.google.com/file/d/1GOEl9lxgSsWUWOXkZZrch08GgPADze7U/view?usp=sharing), and save both into `data/`
-2. Download [bird](http://www.vision.caltech.edu/visipedia/CUB-200-2011.html) dataset and extract the images to `data/birds/`
-3. Download [coco](http://cocodataset.org/#download) dataset and extract the images to `data/coco/`
+1. Download [CUB-200-2011 Dataset](https://deepai.org/dataset/cub-200-2011), and save into `data/birds/`
 
 ### Training
-All code was developed and tested on CentOS 7 with Python 3.7 (Anaconda) and PyTorch 1.1.
 
-#### [DAMSM](https://github.com/taoxugit/AttnGAN) model includes text encoder and image encoder
-- Pre-train DAMSM model for bird dataset:
+#### 1. Pretrain [DAMSM](https://github.com/taoxugit/AttnGAN) model including text encoder and image encoder
+Input: bird dataset
+
+Output: 2 trained models which are stored in `output` folder.
+- text_encoder.pth
+- image_encoder.pth
+
+a. Pre-train DAMSM model for ControlGAN + BERT:
+```
+python pretrain_DAMSM_BERT.py --cfg cfg/DAMSM/bird_BERT.yml --gpu 0
+```
+b. Pre-train DAMSM model for ControlGAN + RNN: 
 ```
 python pretrain_DAMSM.py --cfg cfg/DAMSM/bird.yml --gpu 0
 ```
-- Pre-train DAMSM model for coco dataset: 
+#### 2. Train ControlGAN model 
+Input: 
+- text_encoder.pth (from step 1)
+- bird dataset 
+- `*.yml` files include configuration for training.
+
+Output: image generator models which are stored in `output` folder.
+- netG.pth
+
+a. Train ControlGAN + BERT model:
 ```
-python pretrain_DAMSM.py --cfg cfg/DAMSM/coco.yml --gpu 1
+python main_BERT.py --cfg cfg/train_BERT.yml --gpu 0
 ```
-#### ControlGAN model 
-- Train ControlGAN model for bird dataset:
+b. Train ControlGAN + RNN model: 
 ```
-python main.py --cfg cfg/train_bird.yml --gpu 2
-```
-- Train ControlGAN model for coco dataset: 
-```
-python main.py --cfg cfg/train_coco.yml --gpu 3
+python main.py --cfg cfg/train_bird.yml --gpu 0
 ```
 
-`*.yml` files include configuration for training and testing.
+### 3. Testing
+Input: 
+- text_encoder.pth (from step 1)
+- netG.pth
+- `*.yml` files include configuration for testing.
 
+Output: 
+- New generated images for each text input (`output` or `model` folder)
 
-#### Pretrained DAMSM Model
-- [DAMSM for bird](https://drive.google.com/file/d/1dbdCgaYr3z80OVvISTbScSy5eOSqJVxv/view?usp=sharing). Download and save it to `DAMSMencoders/`
-- [DAMSM for coco](https://drive.google.com/file/d/1k8FsZFQrrye4Ght1IVeuphFMhgFwOxTx/view?usp=sharing). Download and save it to `DAMSMencoders/`
-#### Pretrained ControlGAN Model
-- [ControlGAN for bird](https://drive.google.com/file/d/1g1Kx5-hUXfJOGlw2YK3oVa5C9IoQpnA_/view?usp=sharing). Download and save it to `models/`
+** To generate images for all captions in the testing dataset, change B_VALIDATION to `True` in the eval_*.yml. 
 
-### Testing
-- Test ControlGAN model for bird dataset:
+a. Test ControlGAN + BERT model:
 ```
-python main.py --cfg cfg/eval_bird.yml --gpu 4
+python main_BERT.py --cfg cfg/eval_BERT.yml --gpu 0
 ```
-- Test ControlGAN model for coco dataset: 
+b. Test ControlGAN + RNN model: 
 ```
-python main.py --cfg cfg/eval_coco.yml --gpu 5
+python main.py --cfg cfg/eval_bird.yml --gpu 0
 ```
-### Evaluation
+### 4. Evaluation
+Input: 
+- New generated images folder from step 3
 
-- To generate images for all captions in the testing dataset, change B_VALIDATION to `True` in the eval_*.yml. 
-- Inception Score for bird dataset: [StackGAN-inception-model](https://github.com/hanzhanggit/StackGAN-inception-model).
-- Inception Score for coco dataset: [improved-gan/inception_score](https://github.com/openai/improved-gan/tree/master/inception_score).
-
-### Code Structure
-- code/main.py: the entry point for training and testing.
-- code/trainer.py: creates the main networks, harnesses and reports the progress of training.
-- code/model.py: defines the architecture of ControlGAN.
-- code/attention.py: defines the spatial and channel-wise attentions.
-- code/VGGFeatureLoss.py: defines the architecture of the VGG-16.
-- code/datasets.py: defines the class for loading images and captions.
-- code/pretrain_DAMSM.py: creates the text and image encoders, harnesses and reports the progress of training. 
-- code/miscc/losses.py: defines and computes the losses.
-- code/miscc/config.py: creates the option list.
-- code/miscc/utils.py: additional functions.
-
-### Citation
-
-If you find this useful for your research, please use the following.
-
+Output: 
+- Inception Scores
+** Note: we need to change the image folder path in the script.
 ```
-@article{li2019control,
-  title={Controllable text-to-image generation},
-  author={Li, Bowen and Qi, Xiaojuan and Lukasiewicz, Thomas and H.~S.~Torr, Philip},
-  journal={arXiv preprint arXiv:1909.07083},
-  year={2019}
-}
+python is_score.py
 ```
+### Pretrained model
+You can use these [pretrained models](https://drive.google.com/drive/u/2/folders/1p41TMRHiV-wgCu4ybwQSlScuWc2MVLW6) to reproduce the results:
+- text_encoder.pth  -> Download and store in `DAMSMencoders/bird` folder
+- text_encoder_BERT.pth   -> Download and store in `DAMSMencoders/bird` folder
+- image_encoder.pth  -> Download and store in `DAMSMencoders/bird` folder
+- image_encoder_BERT.pth  -> Download and store in `DAMSMencoders/bird` folder
+- netG_RNN.pth -> Download and store in `model/bird` folder
+- netG_BERT.pth -> Download and store in `model/bird` folder
 
 ### Acknowledgements
-This code borrows heavily from [AttnGAN](https://github.com/taoxugit/AttnGAN) repository. Many thanks.
+This code is developed based on [ControlGAN](https://github.com/mrlibw/ControlGAN) repository.
