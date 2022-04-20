@@ -78,6 +78,7 @@ Input:
 
 Output: 
 - Inception Scores
+
 ** Note: we need to change the image folder path in the script.
 ```
 python is_score.py
